@@ -3,6 +3,10 @@ import { api } from '../lib/api';
 
 export type ThemeMode = 'dark' | 'gray' | 'light' | 'custom';
 
+export type ZoomLevel = 100 | 125 | 150 | 175 | 200;
+
+export const ZOOM_LEVELS: ZoomLevel[] = [100, 125, 150, 175, 200];
+
 export interface CustomThemeColors {
   background: string;
   foreground: string;
@@ -26,8 +30,12 @@ export interface CustomThemeColors {
 interface ThemeContextType {
   theme: ThemeMode;
   customColors: CustomThemeColors;
+  zoomLevel: ZoomLevel;
   setTheme: (theme: ThemeMode) => Promise<void>;
   setCustomColors: (colors: Partial<CustomThemeColors>) => Promise<void>;
+  setZoomLevel: (level: ZoomLevel) => Promise<void>;
+  zoomIn: () => Promise<void>;
+  zoomOut: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -35,6 +43,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'theme_preference';
 const CUSTOM_COLORS_STORAGE_KEY = 'theme_custom_colors';
+const ZOOM_STORAGE_KEY = 'ui_zoom_level';
 
 // Default custom theme colors (based on current dark theme)
 const DEFAULT_CUSTOM_COLORS: CustomThemeColors = {
@@ -60,6 +69,7 @@ const DEFAULT_CUSTOM_COLORS: CustomThemeColors = {
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeMode>('gray');
   const [customColors, setCustomColorsState] = useState<CustomThemeColors>(DEFAULT_CUSTOM_COLORS);
+  const [zoomLevel, setZoomLevelState] = useState<ZoomLevel>(100);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load theme preference and custom colors from storage
@@ -81,12 +91,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // Load custom colors
         const savedColors = await api.getSetting(CUSTOM_COLORS_STORAGE_KEY);
-        
+
         if (savedColors) {
           const colors = JSON.parse(savedColors) as CustomThemeColors;
           setCustomColorsState(colors);
           if (theme === 'custom') {
             await applyTheme('custom', colors);
+          }
+        }
+
+        // Load zoom level
+        const savedZoom = await api.getSetting(ZOOM_STORAGE_KEY);
+        if (savedZoom) {
+          const zoom = parseInt(savedZoom) as ZoomLevel;
+          if (ZOOM_LEVELS.includes(zoom)) {
+            setZoomLevelState(zoom);
+            applyZoom(zoom);
           }
         }
       } catch (error) {
@@ -126,6 +146,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Note: Window theme updates removed since we're using custom titlebar
   }, []);
 
+  // Apply zoom to document
+  const applyZoom = useCallback((zoom: ZoomLevel) => {
+    const root = document.documentElement;
+    root.style.setProperty('--ui-zoom', String(zoom / 100));
+    // Apply zoom to body for consistent scaling
+    document.body.style.zoom = `${zoom}%`;
+  }, []);
+
   const setTheme = useCallback(async (newTheme: ThemeMode) => {
     try {
       setIsLoading(true);
@@ -146,15 +174,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setCustomColors = useCallback(async (colors: Partial<CustomThemeColors>) => {
     try {
       setIsLoading(true);
-      
+
       const newColors = { ...customColors, ...colors };
       setCustomColorsState(newColors);
-      
+
       // Apply immediately if custom theme is active
       if (theme === 'custom') {
         await applyTheme('custom', newColors);
       }
-      
+
       // Save to storage
       await api.saveSetting(CUSTOM_COLORS_STORAGE_KEY, JSON.stringify(newColors));
     } catch (error) {
@@ -164,11 +192,42 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [theme, customColors, applyTheme]);
 
+  const setZoomLevel = useCallback(async (newZoom: ZoomLevel) => {
+    try {
+      // Apply zoom immediately
+      setZoomLevelState(newZoom);
+      applyZoom(newZoom);
+
+      // Save to storage
+      await api.saveSetting(ZOOM_STORAGE_KEY, String(newZoom));
+    } catch (error) {
+      console.error('Failed to save zoom level:', error);
+    }
+  }, [applyZoom]);
+
+  const zoomIn = useCallback(async () => {
+    const currentIndex = ZOOM_LEVELS.indexOf(zoomLevel);
+    if (currentIndex < ZOOM_LEVELS.length - 1) {
+      await setZoomLevel(ZOOM_LEVELS[currentIndex + 1]);
+    }
+  }, [zoomLevel, setZoomLevel]);
+
+  const zoomOut = useCallback(async () => {
+    const currentIndex = ZOOM_LEVELS.indexOf(zoomLevel);
+    if (currentIndex > 0) {
+      await setZoomLevel(ZOOM_LEVELS[currentIndex - 1]);
+    }
+  }, [zoomLevel, setZoomLevel]);
+
   const value: ThemeContextType = {
     theme,
     customColors,
+    zoomLevel,
     setTheme,
     setCustomColors,
+    setZoomLevel,
+    zoomIn,
+    zoomOut,
     isLoading,
   };
 
