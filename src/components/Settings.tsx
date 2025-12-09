@@ -28,6 +28,7 @@ import { HooksEditor } from "./HooksEditor";
 import { SlashCommandsManager } from "./SlashCommandsManager";
 import { ProxySettings } from "./ProxySettings";
 import { useTheme, useTrackEvent } from "@/hooks";
+import { ZOOM_LEVELS } from "@/contexts/ThemeContext";
 import { analytics } from "@/lib/analytics";
 import { TabPersistenceService } from "@/services/tabPersistence";
 
@@ -82,7 +83,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const getUserHooks = React.useRef<(() => any) | null>(null);
   
   // Theme hook
-  const { theme, setTheme, customColors, setCustomColors } = useTheme();
+  const { theme, setTheme, customColors, setCustomColors, zoomLevel, setZoomLevel } = useTheme();
   
   // Proxy state
   const [proxySettingsChanged, setProxySettingsChanged] = useState(false);
@@ -597,7 +598,34 @@ export const Settings: React.FC<SettingsProps> = ({
                         </p>
                       </div>
                     )}
-                    
+
+                    {/* Zoom Level Selector */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>UI Zoom Level</Label>
+                        <p className="text-caption text-muted-foreground mt-1">
+                          Scale the entire interface for better readability (Cmd/Ctrl +/-)
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-lg">
+                        {ZOOM_LEVELS.map((level) => (
+                          <button
+                            key={level}
+                            onClick={() => setZoomLevel(level)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                              zoomLevel === level
+                                ? "bg-background shadow-sm"
+                                : "hover:bg-background/50"
+                            )}
+                          >
+                            {zoomLevel === level && <Check className="h-3 w-3" />}
+                            {level}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Include Co-authored By */}
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5 flex-1">

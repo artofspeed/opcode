@@ -24,7 +24,7 @@ import { ProjectSettings } from '@/components/ProjectSettings';
 import { TabManager } from "@/components/TabManager";
 import { TabContent } from "@/components/TabContent";
 import { useTabState } from "@/hooks/useTabState";
-import { useAppLifecycle, useTrackEvent } from "@/hooks";
+import { useAppLifecycle, useTrackEvent, useTheme } from "@/hooks";
 import { StartupIntro } from "@/components/StartupIntro";
 
 type View = 
@@ -66,6 +66,7 @@ function AppContent() {
   // Initialize analytics lifecycle tracking
   useAppLifecycle();
   const trackEvent = useTrackEvent();
+  const { zoomIn, zoomOut, setZoomLevel } = useTheme();
   
   // Track user journey milestones
   const [hasTrackedFirstChat] = useState(false);
@@ -139,6 +140,35 @@ function AppContent() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [view]);
+
+  // Keyboard shortcuts for zoom (global - works in all views)
+  useEffect(() => {
+    const handleZoomKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+      if (modKey) {
+        // Cmd/Ctrl + Plus or Cmd/Ctrl + = (zoom in)
+        if (e.key === '+' || e.key === '=') {
+          e.preventDefault();
+          zoomIn();
+        }
+        // Cmd/Ctrl + Minus (zoom out)
+        else if (e.key === '-') {
+          e.preventDefault();
+          zoomOut();
+        }
+        // Cmd/Ctrl + 0 (reset zoom to 100%)
+        else if (e.key === '0') {
+          e.preventDefault();
+          setZoomLevel(100);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleZoomKeyDown);
+    return () => window.removeEventListener('keydown', handleZoomKeyDown);
+  }, [zoomIn, zoomOut, setZoomLevel]);
 
   // Listen for Claude not found events
   useEffect(() => {
